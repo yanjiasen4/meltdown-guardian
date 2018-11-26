@@ -2,7 +2,6 @@
 #define MELTDOWN_GUARDIAN_H
 
 #include <sys/types.h>
-#include <stdint.h>
 
 #define LLC_REF  0x4f2e
 #define LLC_MISS 0x412e
@@ -15,6 +14,11 @@
 #define IA32_PMC(x)        (0x0c1 + x)
 #define IA32_PERFEVTSEL(x) (0x186 + x)
 
+/* Debug_Store Save Area
+ * 64 bit format of the DS Save Area
+ * When DTES64 = 1 (CPUID.1.EXC[2] = 1), the structure of the DS save area
+ * is as the following.
+ */
 struct ds_area {
     uint64_t bts_buffer_base;          // 0x00H
     uint64_t bts_index;                // 0x08H
@@ -31,7 +35,7 @@ struct ds_area {
     uint64_t reserved;                 // 0x60H
 };
 
-void pebs_init(uint64_t *counter, uint64_t *reset_val);
+void pebs_init(uint64_t *counter, uinte64_t *reset_val);
 void pebs_dump();
 
 #endif
