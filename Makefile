@@ -1,16 +1,25 @@
 # Meltdown-guardian Makefile
 # Author: Ming.yang@intel.com
 
-OBJ := meltdown-guardian.c
+SRC := meltdown-guardian.c msrop.c
+DEP := meltdown-guardian.h msrop.h
+PROG := mg
+OBJ := msrop.o meltdown-guardian.o
 OUT := meltdown-guardian
 CC ?= gcc
 
-CFLAGS := -g -O2 -std=c++14
+CFLAGS := -g -O2
 
 .PHONY: all
-all:
-	$(CC) $(OBJ) -o $(OUT) $(CFLAGS)
+all: $(OBJ)
+	$(CC) -o $(OUT) $(OBJ)
+
+msrop.o: msrop.c msrop.h
+	$(CC) -c msrop.c
+
+meltdown-guardian.o: meltdown-guardian.c meltdown-guardian.h
+	$(CC) -c meltdown-guardian.c
 
 .PHONY: clean
 clean:
-	rm -rf $(OUT)
+	rm -rf $(OBJ) $(OUT)

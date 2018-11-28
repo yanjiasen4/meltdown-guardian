@@ -1,8 +1,8 @@
 #ifndef MELTDOWN_GUARDIAN_H
 #define MELTDOWN_GUARDIAN_H
 
-#include <sys/types.h>
 #include <stdint.h>
+#include "msrop.h"
 
 #define LLC_REF  0x4f2e
 #define LLC_MISS 0x412e
@@ -17,7 +17,7 @@
 
 struct pebs_rec {
     uint64_t rflags;                  // 0x00H
-    uint64_t rip;
+    uint64_t rip;                     // 0x08H
     uint64_t rax;
     uint64_t rbx;
     uint64_t rcx;
@@ -34,6 +34,13 @@ struct pebs_rec {
     uint64_t r13;
     uint64_t r14;
     uint64_t r15;                     // 0x88H
+    /*
+     *  Nehalem Performance Monitoring Unit Programming
+     */
+    uint64_t ia32_perf_global_status; // 0x90H
+    uint64_t data_linear_address;     // 0x98H
+    uint64_t data_source_encoding;    // 0xa0H
+    uint64_t latency_value;           // 0xa8H
 };
 
 /*
@@ -48,10 +55,10 @@ struct ds_area {
     uint64_t bts_index;                // 0x08H
     uint64_t bts_absolute_maximum;     // 0x10H
     uint32_t interrupt_threshold;      // 0x18H
-    uint64_t pebs_buffer_base;         // 0x20H
-    uint64_t pebs_index;               // 0x28H
-    uint64_t pebs_absolute_maximum;    // 0x30H
-    uint32_t pebs_interrupt_threshold; // 0x38H
+    struct pebs_rec *pebs_buffer_base;         // 0x20H
+    struct pebs_rec *pebs_index;               // 0x28H
+    struct pebs_rec *pebs_absolute_maximum;    // 0x30H
+    struct pebs_rec *pebs_interrupt_threshold; // 0x38H
     uint64_t pebs_counter0_reset;      // 0x40H
     uint64_t pebs_counter1_reset;      // 0x48H
     uint64_t pebs_counter2_reset;      // 0x50H
