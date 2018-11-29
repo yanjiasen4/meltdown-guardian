@@ -9,6 +9,7 @@
 #include <sys/types.h>
 
 struct ds_area *pds_area;
+int npages = 0;
 
 void
 pebs_init(int nRecords, uint64_t *counter, uint64_t *reset_val)
@@ -28,9 +29,9 @@ pebs_init(int nRecords, uint64_t *counter, uint64_t *reset_val)
     * 5. Write an interrupt service routine to handle the interrupt.
     */
     int pagesize = getpagesize();
+    npages = 2 + (sizeof(struct pebs_rec)*nRecords) / pagesize;
 
-    pds_area = mmap(NULL, pagesize + (pagesize *
-                (((sizeof(struct pebs_rec)*nRecords) / pagesize) + 1)),
+    pds_area = mmap(NULL, npages * pagesize,
                 PROT_READ | PROT_WRITE,
                 MAP_ANONYMOUS | MAP_LOCKED | MAP_PRIVATE, -1, 0);
 
@@ -96,6 +97,29 @@ void pebs_dump()
 	close(fd);
 }
 
+void pebs_clear()
+{
+    int ret;
+    int pagesize = getpagesize();
+
+    msr_write(0, PERF_GLOBAL_CTRL, 0x0);
+    msr_write(0, IA32_PEBS_ENABLE, 0x0);
+    msr_write(0, IA32_DS_AREA, 0x0);
+
+    msr_write(0, IA32_PERFEVTSEL(0), 0x0);
+    msr_write(0, IA32_PERFEVTSEL(1), 0x0);
+    msr_write(0, IA32_PERFEVTSEL(2), 0x0);
+    msr_write(0, IA32_PERFEVTSEL(3), 0x0);
+
+    msr_write(0, IA32_PMC(0), 0x0);
+    msr_write(0, IA32_PMC(1), 0x0);
+    msr_write(0, IA32_PMC(2), 0x0);
+    msr_write(0, IA32_PMC(3), 0x0);
+
+    munmap(pds_area, npages * pagesize);
+    msr_finalize();
+}
+
 int
 main()
 {
@@ -114,5 +138,7 @@ main()
     sleep(3);
     pebs_dump();
     printf("pebs dump finished\n");
+    pebs_clear();
+    printf("pebs clear finished\n");
     return 0;
 }
