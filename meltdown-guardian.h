@@ -86,5 +86,6 @@ struct ds_area {
 void pebs_init(int nRecords, uint64_t *counter, uint64_t *reset_val);
 void pebs_dump();
 void pebs_clear();
+void pebs_print();
 
 #endif

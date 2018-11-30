@@ -120,6 +120,17 @@ void pebs_clear()
     msr_finalize();
 }
 
+void
+pebs_print(){
+   uint64_t pmc_val[4];
+   msr_read(0, IA32_PMC(0), pmc_val);
+   msr_read(0, IA32_PMC(1), pmc_val + 1);
+   msr_read(0, IA32_PMC(2), pmc_val + 2);
+   msr_read(0, IA32_PMC(3), pmc_val + 3);
+
+   printf("%lu, %lu, %lu, %lu\n", pmc_val[0], pmc_val[1], pmc_val[2], pmc_val[3]);
+}
+
 int
 main()
 {
@@ -127,14 +138,21 @@ main()
         PE(MEM_LOAD_UOPS_RETIRED, L2_MISS), 0, 0, 0
     };
     uint64_t reset_values[4] = {
-        SAMPLE_FREQ(100), 0, 0, 0
+        SAMPLE_FREQ(1000), 0, 0, 0
     };
+    int i = 0;
     msr_init();
     printf("msr init finished\n");
     pebs_init(16, events, reset_values);
 
     printf("pebs init finished\n");
     printf("sleeping...\n");
+
+    for (i = 0; i < 100; i++) {
+        pebs_print();
+        sleep(1);
+    }
+
     sleep(3);
     pebs_dump();
     printf("pebs dump finished\n");
