@@ -122,13 +122,27 @@ void pebs_clear()
 
 void
 pebs_print(){
-   uint64_t pmc_val[4];
-   msr_read(0, IA32_PMC(0), pmc_val);
-   msr_read(0, IA32_PMC(1), pmc_val + 1);
-   msr_read(0, IA32_PMC(2), pmc_val + 2);
-   msr_read(0, IA32_PMC(3), pmc_val + 3);
+    uint64_t pmc_val[4];
+    msr_read(0, IA32_PMC(0), pmc_val);
+    msr_read(0, IA32_PMC(1), pmc_val + 1);
+    msr_read(0, IA32_PMC(2), pmc_val + 2);
+    msr_read(0, IA32_PMC(3), pmc_val + 3);
 
-   printf("%lu, %lu, %lu, %lu\n", pmc_val[0], pmc_val[1], pmc_val[2], pmc_val[3]);
+    printf("%lu, %lu, %lu, %lu\n", pmc_val[0], pmc_val[1], pmc_val[2], pmc_val[3]);
+    struct pebs_rec *p = pds_area->pebs_buffer_base;
+	while(p != pds_area->pebs_index){
+	    printf("[-----------------------------------------]\n\
+                rflags: %lu, rip: %lu, rax: %lu, rbx: %lu\n\
+                rcx: %lu, rdx: %lu, rsi: %lu, rdi: %lu\n\
+                rdi: %lu, rbp: %lu, rsp: %lu\n\
+                ac: %lu, dla: %lu, dse: %lu, lv: %lu\n\
+                er: %lu, tsc: %lu",
+                p->rflags, p->rip, p->rax, p->rbx,
+                p->rcx, p->rdx, p->rsi, p->rdi,
+                p->rdi, p->rbp, p->rsp,
+                p->applicable_counters, p->data_linear_address, p->data_source_encoding,
+                p->latency_value, p->eventing_rip, p->tsc);
+    }
 }
 
 int

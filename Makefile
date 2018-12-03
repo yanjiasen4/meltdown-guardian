@@ -12,13 +12,13 @@ CFLAGS := -g -O2
 
 .PHONY: all
 all: $(OBJ)
-	$(CC) -o $(OUT) $(OBJ)
+	$(CC) -g -o $(OUT) $(OBJ)
 
 msrop.o: msrop.c msrop.h
-	$(CC) -c msrop.c
+	$(CC) -g -c msrop.c
 
 meltdown-guardian.o: meltdown-guardian.c meltdown-guardian.h
-	$(CC) -c meltdown-guardian.c
+	$(CC) -g -c meltdown-guardian.c
 
 .PHONY: clean
 clean:
