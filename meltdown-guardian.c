@@ -62,7 +62,7 @@ pebs_init(int nRecords, uint64_t *counter, uint64_t *reset_val)
     msr_write(0, IA32_PEBS_ENABLE, 0x0);
     msr_write(0, IA32_DS_AREA, (uint64_t)pds_area);
 
-    msr_write(0, IA32_PEBS_ENABLE, 0xf | ((uint64_t)0xf << 32));
+    msr_write(0, IA32_PEBS_ENABLE, 0x1);
 
     msr_write(0, IA32_PMC(0), reset_val[0]);
     msr_write(0, IA32_PMC(1), reset_val[1]);
@@ -152,7 +152,7 @@ main()
         PE(MEM_LOAD_UOPS_RETIRED, L2_MISS), 0, 0, 0
     };
     uint64_t reset_values[4] = {
-        SAMPLE_FREQ(1000), 0, 0, 0
+        SAMPLE_FREQ(100), 0, 0, 0
     };
     int i = 0;
     msr_init();

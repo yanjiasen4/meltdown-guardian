@@ -27,7 +27,7 @@
 #define IA32_PERFEVTSEL(x) (0x186 + x)
 
 #define PMC_MAX (~0x0UL >> 16)
-#define SAMPLE_FREQ(x) (PMC_MAX + 1 - x)
+#define SAMPLE_FREQ(x) (-x)
 
 struct pebs_rec {
     uint64_t rflags;                  // 0x00H
