@@ -43,6 +43,9 @@ meltdown-guardian
 *.idb
 *.pdb
 
+# Make cache
+.mk
+
 # Kernel Module Compile Results
 *.mod*
 *.cmd
