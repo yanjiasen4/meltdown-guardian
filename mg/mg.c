@@ -10,6 +10,7 @@
 #include <asm/msr.h>
 
 #define IA32_DS_AREA              0x600
+#define PEBS_LD_LAT_THRESHOLD     0x3f6
 #define IA32_PEBS_ENABLE          0x3f1
 #define IA32_PERF_GLOBAL_OVF_CTRL 0x390
 #define IA32_PERF_GLOBAL_STATUS   0x38e
@@ -19,12 +20,13 @@
 #define IA32_PMC(x)               (0x0c1 + x)
 
 #define PEBS_BUFFER_SIZE   (64 * 1024)
-#define PEBS_NUM    0x100
-#define PEBS_THRESH (PEBS_NUM - PEBS_NUM / 10)
 #define SAMPLE_FREQ 100003
 
 #define LLC_REF   0x4f2e
 #define LLC_MISS  0x412e
+
+#define MEM_LOAD_RETIRED_L2_MISS 0X10d1
+#define MEM_TRANS_RETIRED_PRECISE_STORE 0x2cd
 
 #define EVTSEL_USER BIT(16)
 #define EVTSEL_OS   0
@@ -99,6 +101,7 @@ static DEFINE_PER_CPU(struct ds_area *, cpu_ds);
 static int alloc_ds(void)
 {
     uint64_t cap;
+    unsigned pebs_num;
     struct ds_area *ds;
 
     /* check perf capability */
@@ -119,19 +122,25 @@ static int alloc_ds(void)
     }
 
     ds = kmalloc(sizeof(struct ds_area), GFP_KERNEL);
+    memset(ds, 0, sizeof(struct ds_area));
     if (!ds) {
         return -1;
     }
 
-    ds->pebs_buffer_base = (unsigned long)kmalloc(PEBS_NUM * pebs_rec_size, GFP_KERNEL);
+    ds->pebs_buffer_base = (unsigned long)kmalloc(PEBS_BUFFER_SIZE, GFP_KERNEL);
     if (!ds->pebs_buffer_base) {
         kfree(ds);
         return -1;
     }
+    memset((void *)ds->pebs_buffer_base, 0, PEBS_BUFFER_SIZE);
+    pebs_num = PEBS_BUFFER_SIZE / pebs_rec_size;
     ds->pebs_index = ds->pebs_buffer_base;
-    ds->pebs_absolute_maximum = ds->pebs_buffer_base + (PEBS_NUM - 1) * pebs_rec_size;
-    ds->pebs_interrupt_threshold = ds->pebs_buffer_base + PEBS_THRESH * pebs_rec_size;
+    ds->pebs_absolute_maximum = ds->pebs_buffer_base + (pebs_num - 1) * pebs_rec_size;
+    ds->pebs_interrupt_threshold = ds->pebs_buffer_base + (pebs_num - pebs_num / 10) * pebs_rec_size;
     ds->pebs_counter0_reset = -(long long)SAMPLE_FREQ;
+    ds->pebs_counter1_reset = -(long long)SAMPLE_FREQ;
+    ds->pebs_counter2_reset = -(long long)SAMPLE_FREQ;
+    ds->pebs_counter3_reset = -(long long)SAMPLE_FREQ;
 
     __this_cpu_write(cpu_ds, ds);
 
@@ -150,19 +159,45 @@ static void pebs_cpu_init(void *arg)
     wrmsrl(IA32_PEBS_ENABLE, 0x0);
     wrmsrl(IA32_DS_AREA, __this_cpu_read(cpu_ds));
 
-    /* Enable perf count 0 */
-    wrmsrl(IA32_PEBS_ENABLE, 0x1);
+    /* Enable perf count 3 */
+    wrmsrl(IA32_PEBS_ENABLE, (0x1 << 3) | (0x1L << 63));
 
-    wrmsrl(IA32_PMC(0), -(long long)SAMPLE_FREQ);
-    wrmsrl(IA32_PERFEVTSEL(0), 0x1c2 | EVTSEL_EN | EVTSEL_USER | EVTSEL_OS);
+    wrmsrl(IA32_PMC(3), -(long long)SAMPLE_FREQ);
+    wrmsrl(IA32_PERFEVTSEL(3), MEM_TRANS_RETIRED_PRECISE_STORE | EVTSEL_EN | EVTSEL_USER | EVTSEL_OS);
 
-    wrmsrl(IA32_PERF_GLOBAL_CTRL, 0x1);
+    wrmsrl(IA32_PERF_GLOBAL_CTRL, 0xf);
 }
 
 static void pebs_cpu_print(void *arg)
 {
     struct ds_area *ds = __this_cpu_read(cpu_ds);
+    struct pebs_rec_v1 *pebs, *end;
+    uint64_t ip, ac, dla, dse, lv;
+    int count = 0;
     printk(KERN_INFO "pebs_base: %llx, pebs_index: %llx, pebs_max: %llx", ds->pebs_buffer_base, ds->pebs_index, ds->pebs_absolute_maximum);
+
+    end = (struct pebs_rec_v1 *)ds->pebs_index;
+    for (pebs = (struct pebs_rec_v1 *)ds->pebs_buffer_base; pebs < end;
+            pebs = (struct pebs_rec_v1 *)((char *)pebs + pebs_rec_size)) {
+        ip = pebs->rip;
+        ac = pebs->applicable_counters;
+        dse = pebs->data_source_encoding;
+        dla = pebs->data_linear_address;
+        lv = pebs->latency_value;
+        printk(KERN_INFO "%d: ip: %llx, ac: %llx, dse: %llx, dla: %llx, lv: %llx\n",
+                count++, ip, ac, dse, dla, lv);
+    }
+}
+
+static void pebs_cpu_reset(void *arg)
+{
+    struct ds_area *ds = __this_cpu_read(cpu_ds);
+    if (ds != NULL) {
+        kfree(ds);
+    }
+
+    wrmsrl(IA32_PERFEVTSEL(3), 0x0);
+    wrmsrl(IA32_PMC(3), 0x0);
 }
 
 static struct task_struct *tsk;
@@ -187,6 +222,14 @@ static int pebs_init(void)
     return 0;
 }
 
+static int pebs_reset(void)
+{
+    get_online_cpus();
+    on_each_cpu(pebs_cpu_reset, NULL, 1);
+    put_online_cpus();
+    return 0;
+}
+
 static int __init mg_init(void)
 {
     pebs_init();
@@ -204,6 +247,8 @@ static int __init mg_init(void)
 
 static void __exit mg_exit(void)
 {
+    pebs_reset();
+
     printk(KERN_INFO "mg_exit exit\n");
 }
 
